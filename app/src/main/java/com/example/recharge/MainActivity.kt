@@ -15,15 +15,27 @@ import com.example.recharge.tracking.UsageTrackingWorker
 
 import dagger.hilt.android.AndroidEntryPoint
 
+import com.example.recharge.updater.UpdateManager
+import javax.inject.Inject
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    @Inject
+    lateinit var updateManager: UpdateManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         UsageTrackingWorker.enqueuePeriodicWork(this)
+        
+        // Silently check for updates
+        lifecycleScope.launch {
+            updateManager.checkForUpdates()
+        }
 
         setContent {
             RechargeTheme {

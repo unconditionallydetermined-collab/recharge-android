@@ -46,7 +46,7 @@ class VideoViewModel @Inject constructor(
         viewModelScope.launch {
             combine(prefs.youtubeUrl, prefs.queueIndex) { url, index ->
                 val items = queueDao.getAllOnce()
-                val finalUrl = url // Don't use predefined videos
+                val finalUrl = if (url.isBlank()) "https://www.youtube.com/watch?v=7H0FKzeuVVs" else url
                 Pair(finalUrl, items.getOrNull(index)?.appName ?: "app")
             }.collect { (url, nextApp) ->
                 _state.update { it.copy(youtubeUrl = url, nextAppName = nextApp) }

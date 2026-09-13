@@ -124,45 +124,27 @@ fun SettingsScreen(
                 }
             }
 
-            // Quote screens lock section
+            // Quotes section header
             item {
                 Spacer(Modifier.height(8.dp))
                 SectionHeader(
-                    icon = Icons.Default.Lock,
-                    title = "Quote Screens Lock",
-                    subtitle = "Anti-Relapse",
+                    icon = Icons.Default.FormatQuote,
+                    title = "Quote Screens",
+                    subtitle = "Customize recharge quotes",
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                )
-                QuoteEditLockCard(
-                    isLocked = state.isQuoteEditLocked,
-                    lockExpiresAt = state.quoteLockExpiresAt,
-                    currentQuote = state.firstQuoteText,
-                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
 
-            // Quote editor (visible only when not locked)
-            if (!state.isQuoteEditLocked) {
-                item {
-                    AnimatedVisibility(visible = state.isEditingQuotes) {
-                        QuoteEditorSection(
-                            quotes = state.editableQuotes,
-                            onQuoteChange = { idx, text -> viewModel.updateEditableQuote(idx, text) },
-                            onSave = { viewModel.saveQuotes() },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-                    }
-                    if (!state.isEditingQuotes) {
-                        TextButton(
-                            onClick = { viewModel.startEditingQuotes() },
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        ) {
-                            Icon(Icons.Default.Edit, null, tint = Primary, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Edit Quote Screens", color = Primary, style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
-                }
+            // Quote editor
+            item {
+                QuoteEditorSection(
+                    quotes = state.editableQuotes,
+                    onQuoteChange = { idx, text -> viewModel.updateEditableQuote(idx, text) },
+                    onSave = { viewModel.saveQuotes() },
+                    onAddQuote = { viewModel.addEditableQuote() },
+                    onRemoveQuote = { idx -> viewModel.removeEditableQuote(idx) },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
 
             // System permissions section
@@ -335,87 +317,7 @@ private fun QueueManageRow(
     }
 }
 
-@Composable
-private fun QuoteEditLockCard(
-    isLocked: Boolean,
-    lockExpiresAt: Long,
-    currentQuote: String,
-    modifier: Modifier = Modifier
-) {
-    val sdf = remember { SimpleDateFormat("MMM d", Locale.getDefault()) }
 
-    Column(modifier = modifier) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Surface),
-            shape = CardShape,
-            border = CardDefaults.outlinedCardBorder().copy(width = 1.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(SurfaceVariant, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Lock, null, tint = TextMedium, modifier = Modifier.size(20.dp))
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(if (isLocked) "Locked for 3 Days" else "Unlocked", style = MaterialTheme.typography.titleMedium, color = TextHighEmphasis)
-                    Text(
-                        if (isLocked) "Editable in ${formatTimeUntil(lockExpiresAt)} to curb impulsive resets"
-                        else "Edit your quote screens",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMedium
-                    )
-                }
-                if (isLocked) {
-                    Surface(shape = PillShape, color = SurfaceVariant) {
-                        Text("64%\nDone", style = MaterialTheme.typography.labelSmall, color = TextMedium,
-                            textAlign = TextAlign.Center, modifier = Modifier.padding(8.dp))
-                    }
-                }
-            }
-        }
-
-        if (currentQuote.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
-                shape = CardShape
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("MORNING ANCHOR QUOTE", style = MaterialTheme.typography.labelSmall, color = TextMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Lock, null, tint = TextMedium, modifier = Modifier.size(12.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Immutable", style = MaterialTheme.typography.labelSmall, color = TextMedium)
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "\"$currentQuote\"",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextHighEmphasis,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text("— Marcus Aurelius", style = MaterialTheme.typography.bodySmall, color = TextMedium, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun PermissionsPanel(
@@ -578,6 +480,8 @@ private fun QuoteEditorSection(
     quotes: List<String>,
     onQuoteChange: (Int, String) -> Unit,
     onSave: () -> Unit,
+    onAddQuote: () -> Unit,
+    onRemoveQuote: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -592,20 +496,36 @@ private fun QuoteEditorSection(
             Spacer(Modifier.height(16.dp))
             
             quotes.forEachIndexed { index, quote ->
-                OutlinedTextField(
-                    value = quote,
-                    onValueChange = { onQuoteChange(index, it) },
-                    label = { Text("Quote ${index + 1}") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = PillShape,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Primary,
-                        unfocusedBorderColor = Border
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = quote,
+                        onValueChange = { onQuoteChange(index, it) },
+                        label = { Text("Quote ${index + 1}") },
+                        modifier = Modifier.weight(1f),
+                        shape = PillShape,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Primary,
+                            unfocusedBorderColor = Border
+                        )
                     )
-                )
+                    if (quotes.size > 1) {
+                        IconButton(onClick = { onRemoveQuote(index) }, modifier = Modifier.padding(start = 8.dp)) {
+                            Icon(Icons.Default.Close, null, tint = TextMedium)
+                        }
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
             }
             
+            Spacer(Modifier.height(8.dp))
+            TextButton(
+                onClick = onAddQuote,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Add, null, tint = Primary)
+                Spacer(Modifier.width(8.dp))
+                Text("Add Quote", color = Primary)
+            }
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = onSave,
@@ -613,7 +533,7 @@ private fun QuoteEditorSection(
                 shape = PillShape,
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
             ) {
-                Text("Save & Lock for 3 Days", color = OnPrimary)
+                Text("Save Quotes", color = OnPrimary)
             }
         }
     }

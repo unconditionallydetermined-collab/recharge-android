@@ -146,11 +146,7 @@ fun QuoteScreen(
                 }
             }
 
-            // Breathing circle (on dark quote screen)
-            if (isFinalScreen) {
-                Spacer(Modifier.height(48.dp))
-                BreathingCircle(modifier = Modifier.align(Alignment.CenterHorizontally))
-            }
+
 
             Spacer(Modifier.height(48.dp))
 
@@ -193,61 +189,4 @@ fun QuoteScreen(
     }
 }
 
-@Composable
-private fun BreathingCircle(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "breath")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 0.85f, targetValue = 1.15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "breathScale"
-    )
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f, targetValue = 0.7f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
-    )
 
-    Box(
-        modifier = modifier.size(200.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        // Outer glow ring
-        Box(
-            modifier = Modifier
-                .size(200.dp)
-                .background(Primary.copy(alpha = glowAlpha * 0.3f), CircleShape)
-        )
-        // Middle ring
-        Box(
-            modifier = Modifier
-                .size((160 * scale).dp)
-                .background(Color.Transparent, CircleShape)
-                .padding(4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Transparent)
-            )
-        }
-        // Inner white circle
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .background(Surface, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Inhale", style = MaterialTheme.typography.titleMedium, color = Primary)
-                Text("1s", style = MaterialTheme.typography.headlineMedium, color = TextHighEmphasis)
-                Text("Focus inwardly", style = MaterialTheme.typography.bodySmall, color = TextMedium)
-            }
-        }
-    }
-}

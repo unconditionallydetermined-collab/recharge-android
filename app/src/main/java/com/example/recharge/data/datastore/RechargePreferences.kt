@@ -106,6 +106,5 @@ object TimingConfig {
     const val RECHARGE_HIDDEN_MS = 90L * 60 * 1000       // 90 min
     const val REDIRECT_ACTIVE_MS = 90L * 60 * 1000       // 90 min
     const val REDIRECT_LOCK_MS = 20L * 60 * 1000         // 20 min
-    const val QUOTE_EDIT_LOCK_MS = 72L * 60 * 60 * 1000  // 72 hours
     const val MIN_DWELL_MS = 5L * 60 * 1000              // 5 min
 }

@@ -28,17 +28,13 @@ class QuotesViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val savedQuotes = prefs.getQuoteTexts()
-            val editedAt = prefs.quotesEditedAt.first()
-            val now = System.currentTimeMillis()
-            val locked = editedAt > 0 && (now - editedAt) < TimingConfig.QUOTE_EDIT_LOCK_MS
-
             prefs.quoteCount.collect { count ->
                 _state.update {
                     it.copy(
                         quotes = if (savedQuotes.isNotEmpty()) savedQuotes else RechargePreferences.defaultQuotes,
                         totalCount = count,
-                        isEditLocked = locked,
-                        lockExpiresAt = if (locked) editedAt + TimingConfig.QUOTE_EDIT_LOCK_MS else 0
+                        isEditLocked = false,
+                        lockExpiresAt = 0
                     )
                 }
             }
@@ -62,7 +58,7 @@ class QuotesViewModel @Inject constructor(
             prefs.saveQuotes(quotes)
             prefs.setQuotesEditedAt(System.currentTimeMillis())
             _state.update {
-                it.copy(quotes = quotes, totalCount = quotes.size, isEditLocked = true)
+                it.copy(quotes = quotes, totalCount = quotes.size, isEditLocked = false)
             }
         }
     }

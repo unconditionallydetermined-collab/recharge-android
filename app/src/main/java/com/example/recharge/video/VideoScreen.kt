@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -35,6 +36,8 @@ fun VideoScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    var showUrlPrompt by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -50,23 +53,61 @@ fun VideoScreen(
                 context.stopService(Intent(context, MediaPlaybackService::class.java))
             }
         }
+        
         if (state.youtubeUrl.isEmpty()) {
-            // URL entry prompt
-            UrlEntryPrompt(
-                url = state.urlInput,
-                onUrlChange = viewModel::onUrlInput,
-                onSave = viewModel::saveUrl,
-                error = state.urlError
-            )
+            if (showUrlPrompt) {
+                // URL entry prompt
+                UrlEntryPrompt(
+                    url = state.urlInput,
+                    onUrlChange = viewModel::onUrlInput,
+                    onSave = { 
+                        viewModel.saveUrl()
+                        showUrlPrompt = false
+                    },
+                    error = state.urlError
+                )
+            } else {
+                // Empty black screen with plus sign
+                Box(modifier = Modifier.fillMaxSize()) {
+                    IconButton(
+                        onClick = { showUrlPrompt = true },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(24.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Video", tint = Color.White)
+                    }
+                }
+            }
         } else {
             // Video player (YouTube IFrame in WebView)
-            Column(modifier = Modifier.fillMaxSize()) {
-
-
-                // YouTube IFrame player (WebView)
+            var videoEnded by remember { mutableStateOf(false) }
+            
+            if (videoEnded) {
+                // Simple black end screen
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Button(
+                        onClick = {
+                            viewModel.completeSession()
+                            onVideoComplete()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                        shape = PillShape,
+                        modifier = Modifier.height(56.dp).padding(horizontal = 32.dp)
+                    ) {
+                        Text("Launch ${state.nextAppName}", color = OnPrimary, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            } else {
+                // Fullscreen Video Player
                 val videoId = extractYouTubeId(state.youtubeUrl)
                 if (videoId != null) {
-                    Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        var webViewRef by remember { mutableStateOf<WebView?>(null) }
+                        
                         AndroidView(
                             factory = { ctx ->
                                 WebView(ctx).apply {
@@ -74,189 +115,55 @@ fun VideoScreen(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         ViewGroup.LayoutParams.MATCH_PARENT
                                     )
+                                    setBackgroundColor(android.graphics.Color.BLACK)
                                     settings.javaScriptEnabled = true
                                     settings.mediaPlaybackRequiresUserGesture = false
                                     webViewClient = WebViewClient()
+                                    // Add a JS interface or intercept clicks if needed, 
+                                    // for now we rely on the overlay click
                                     loadData(buildYouTubeHtml(videoId), "text/html", "utf-8")
+                                    webViewRef = this
                                 }
                             },
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // Pause/play overlay (center)
+                        // Invisible clickable overlay to capture taps for play/pause
                         Box(
                             modifier = Modifier
-                                .size(64.dp)
-                                .background(Color.Black.copy(0.4f), CircleShape)
-                                .align(Alignment.Center),
-                            contentAlignment = Alignment.Center
+                                .fillMaxSize()
+                                .background(Color.Transparent)
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    if (state.isPlaying) {
+                                        viewModel.togglePlayPause()
+                                        webViewRef?.evaluateJavascript("player.pauseVideo();", null)
+                                    } else {
+                                        viewModel.togglePlayPause()
+                                        webViewRef?.evaluateJavascript("player.playVideo();", null)
+                                    }
+                                }
+                        )
+
+                        // Close button at top right
+                        IconButton(
+                            onClick = { videoEnded = true },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
                         ) {
-                            Icon(
-                                if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                null,
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp)
-                            )
+                            Icon(Icons.Default.Close, null, tint = Color.White)
                         }
                     }
                 }
-
-
-
-                // Post-video handoff bottom sheet
-                PostVideoHandoff(
-                    nextAppName = state.nextAppName,
-                    onExtend = {},
-                    onLaunch = {
-                        viewModel.completeSession()
-                        onVideoComplete()
-                    }
-                )
             }
         }
     }
 }
 
-@Composable
-private fun PostVideoHandoff(nextAppName: String, onExtend: () -> Unit, onLaunch: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            // Handle
-            Box(
-                Modifier
-                    .width(36.dp)
-                    .height(4.dp)
-                    .background(Color(0xFFE5E7EB), PillShape)
-                    .align(Alignment.CenterHorizontally)
-            )
-            Spacer(Modifier.height(20.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(PrimaryContainer, androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Psychology, null, tint = Primary, modifier = Modifier.size(24.dp))
-                }
-                Spacer(Modifier.width(16.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("RECHARGE STAGE COMPLETE", style = MaterialTheme.typography.labelSmall, color = Primary)
-                    Text("State of Calm Reached", style = MaterialTheme.typography.headlineMedium, color = TextHighEmphasis)
-                }
-                Surface(shape = PillShape, color = SurfaceVariant) {
-                    Text("90m\nCooldown", style = MaterialTheme.typography.labelSmall, color = TextMedium,
-                        textAlign = TextAlign.Center, modifier = Modifier.padding(10.dp))
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FBF9)),
-                shape = CardShape,
-                border = CardDefaults.outlinedCardBorder().copy(width = 1.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Heart Rate Variability", style = MaterialTheme.typography.bodyMedium, color = TextHighEmphasis)
-                        Text("Optimal (+14%)", style = MaterialTheme.typography.labelLarge, color = Primary)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Dopamine baselines normalized. Your nervous system is primed for high-cognition creative flow.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextMedium
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("SCHEDULED APP HANDOFF", style = MaterialTheme.typography.labelSmall, color = TextMedium)
-                Text("Priority Route", style = MaterialTheme.typography.labelSmall, color = Primary)
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Card(
-                colors = CardDefaults.cardColors(containerColor = SurfaceVariant),
-                shape = CardShape
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(Color(0xFF1A1A2E), androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("N", style = MaterialTheme.typography.headlineMedium, color = Color.White)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(nextAppName, style = MaterialTheme.typography.titleMedium, color = TextHighEmphasis)
-                            Spacer(Modifier.width(8.dp))
-                            Surface(shape = PillShape, color = PrimaryContainer) {
-                                Text("Workspaces", style = MaterialTheme.typography.labelSmall, color = PrimaryDark,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
-                            }
-                        }
-                        Text("Q3 Architecture Roadmaps • Sprint 14", style = MaterialTheme.typography.bodySmall, color = TextMedium)
-                    }
-                    Icon(Icons.Default.ArrowForward, null, tint = Primary, modifier = Modifier.size(20.dp))
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(
-                    onClick = onExtend,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    shape = PillShape
-                ) {
-                    Text("Extend 2 Min", style = MaterialTheme.typography.labelLarge)
-                }
-                Button(
-                    onClick = onLaunch,
-                    modifier = Modifier.weight(1f).height(52.dp),
-                    shape = PillShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                ) {
-                    Text("Launch $nextAppName", style = MaterialTheme.typography.labelLarge, color = OnPrimary)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.OpenInNew, null, tint = OnPrimary, modifier = Modifier.size(14.dp))
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Digital wellbeing guardian locked • Distraction feeds blocked for 90m",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextMedium,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
 
 @Composable
 private fun UrlEntryPrompt(

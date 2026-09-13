@@ -69,10 +69,8 @@ class SettingsViewModel @Inject constructor(
                 prefs.quotesEditedAt,
                 prefs.youtubeUrl
             ) { items, index, editedAt, url ->
-                val now = System.currentTimeMillis()
-                val locked = editedAt > 0 && (now - editedAt) < TimingConfig.QUOTE_EDIT_LOCK_MS
                 // Return a data structure since we have more than 3 elements
-                SettingsCombineData(items, index, locked, if (locked) editedAt + TimingConfig.QUOTE_EDIT_LOCK_MS else 0L, url)
+                SettingsCombineData(items, index, false, 0L, url)
             }.collect { data ->
                 _state.update {
                     it.copy(
@@ -149,6 +147,24 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun addEditableQuote() {
+        _state.update {
+            val quotes = it.editableQuotes.toMutableList()
+            quotes.add("")
+            it.copy(editableQuotes = quotes)
+        }
+    }
+
+    fun removeEditableQuote(index: Int) {
+        _state.update {
+            val quotes = it.editableQuotes.toMutableList()
+            if (index in quotes.indices && quotes.size > 1) {
+                quotes.removeAt(index)
+            }
+            it.copy(editableQuotes = quotes)
+        }
+    }
+
     fun saveQuotes() {
         viewModelScope.launch {
             val quotes = _state.value.editableQuotes.filter { it.isNotBlank() }
@@ -159,8 +175,8 @@ class SettingsViewModel @Inject constructor(
                 it.copy(
                     isEditingQuotes = false,
                     firstQuoteText = quotes.first(),
-                    isQuoteEditLocked = true,
-                    quoteLockExpiresAt = System.currentTimeMillis() + TimingConfig.QUOTE_EDIT_LOCK_MS
+                    isQuoteEditLocked = false,
+                    quoteLockExpiresAt = 0L
                 )
             }
         }
