@@ -14,8 +14,8 @@ android {
         applicationId = "com.example.recharge"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.8"
+        versionCode = 10
+        versionName = "1.9"
 
     }
 

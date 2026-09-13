@@ -54,9 +54,9 @@ fun VideoScreen(
             }
         }
         
-        if (state.youtubeUrl.isEmpty()) {
+        val videoId = extractYouTubeId(state.youtubeUrl)
+        if (videoId == null) {
             if (showUrlPrompt) {
-                // URL entry prompt
                 UrlEntryPrompt(
                     url = state.urlInput,
                     onUrlChange = viewModel::onUrlInput,
@@ -103,67 +103,69 @@ fun VideoScreen(
                 }
             } else {
                 // Fullscreen Video Player
-                val videoId = extractYouTubeId(state.youtubeUrl)
-                if (videoId != null) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        var webViewRef by remember { mutableStateOf<WebView?>(null) }
-                        
-                        AndroidView(
-                            factory = { ctx ->
-                                WebView(ctx).apply {
-                                    layoutParams = ViewGroup.LayoutParams(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
-                                    setBackgroundColor(android.graphics.Color.BLACK)
-                                    settings.javaScriptEnabled = true
-                                    settings.domStorageEnabled = true
-                                    settings.mediaPlaybackRequiresUserGesture = false
-                                    webViewClient = WebViewClient()
-                                    webChromeClient = android.webkit.WebChromeClient()
-                                    // Add a JS interface or intercept clicks if needed, 
-                                    // for now we rely on the overlay click
-                                    loadDataWithBaseURL(
-                                        "https://www.youtube.com",
-                                        buildYouTubeHtml(videoId),
-                                        "text/html",
-                                        "utf-8",
-                                        null
-                                    )
-                                    webViewRef = this
-                                }
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
-
-                        // Invisible clickable overlay to capture taps for play/pause
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Transparent)
-                                .clickable(
-                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    if (state.isPlaying) {
-                                        viewModel.togglePlayPause()
-                                        webViewRef?.evaluateJavascript("player.pauseVideo();", null)
-                                    } else {
-                                        viewModel.togglePlayPause()
-                                        webViewRef?.evaluateJavascript("player.playVideo();", null)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+                    
+                    AndroidView(
+                        factory = { ctx ->
+                            WebView(ctx).apply {
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                                setBackgroundColor(android.graphics.Color.BLACK)
+                                settings.javaScriptEnabled = true
+                                settings.domStorageEnabled = true
+                                settings.mediaPlaybackRequiresUserGesture = false
+                                webViewClient = WebViewClient()
+                                webChromeClient = android.webkit.WebChromeClient()
+                                addJavascriptInterface(object {
+                                    @android.webkit.JavascriptInterface
+                                    fun onVideoEnded() {
+                                        post { videoEnded = true }
                                     }
-                                }
-                        )
+                                }, "AndroidVideoInterface")
+                                
+                                loadDataWithBaseURL(
+                                    "https://localhost",
+                                    buildYouTubeHtml(videoId),
+                                    "text/html",
+                                    "utf-8",
+                                    null
+                                )
+                                webViewRef = this
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
 
-                        // Close button at top right
-                        IconButton(
-                            onClick = { videoEnded = true },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(16.dp)
-                        ) {
-                            Icon(Icons.Default.Close, null, tint = Color.White)
-                        }
+                    // Invisible clickable overlay to capture taps for play/pause
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Transparent)
+                            .clickable(
+                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                if (state.isPlaying) {
+                                    viewModel.togglePlayPause()
+                                    webViewRef?.evaluateJavascript("player.pauseVideo();", null)
+                                } else {
+                                    viewModel.togglePlayPause()
+                                    webViewRef?.evaluateJavascript("player.playVideo();", null)
+                                }
+                            }
+                    )
+
+                    // Close button at top right
+                    IconButton(
+                        onClick = { videoEnded = true },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
+                    ) {
+                        Icon(Icons.Default.Close, null, tint = Color.White)
                     }
                 }
             }
@@ -243,9 +245,17 @@ private fun buildYouTubeHtml(videoId: String) = """
                         'controls': 0,
                         'rel': 0,
                         'modestbranding': 1,
-                        'autoplay': 1
+                        'autoplay': 1,
+                        'origin': 'https://localhost'
                     },
-                    events: { 'onReady': function(e) { e.target.playVideo(); } }
+                    events: { 
+                        'onReady': function(e) { e.target.playVideo(); },
+                        'onStateChange': function(e) {
+                            if (e.data === YT.PlayerState.ENDED && window.AndroidVideoInterface) {
+                                window.AndroidVideoInterface.onVideoEnded();
+                            }
+                        }
+                    }
                 });
             }
         </script>
