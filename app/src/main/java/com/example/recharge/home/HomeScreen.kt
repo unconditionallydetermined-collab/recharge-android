@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.recharge.AppRoute
@@ -34,7 +35,6 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val selectedTab = remember { mutableIntStateOf(0) }
 
     Box(
         modifier = Modifier
@@ -42,11 +42,6 @@ fun HomeScreen(
             .background(Background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Foreground service banner
-            if (state.serviceActive) {
-                ServiceBanner(elapsedMinutes = state.serviceElapsedMinutes)
-            }
-
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(bottom = 80.dp)
@@ -57,26 +52,11 @@ fun HomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp, vertical = 20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "Dashboard",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = TextHighEmphasis
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IconButton(onClick = { onNavigate(AppRoute.Settings) }) {
-                                Icon(Icons.Default.Tune, null, tint = TextMedium)
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Primary, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Person, null, tint = OnPrimary)
-                            }
+                        IconButton(onClick = { onNavigate(AppRoute.Settings) }) {
+                            Icon(Icons.Default.Tune, null, tint = TextMedium)
                         }
                     }
                 }
@@ -87,15 +67,7 @@ fun HomeScreen(
                     Spacer(Modifier.height(16.dp))
                 }
 
-                // Foreground active card
-                item {
-                    ForegroundActiveCard(
-                        currentApp = state.foregroundApp,
-                        onSettings = { onNavigate(AppRoute.Settings) },
-                        modifier = Modifier.padding(horizontal = 24.dp)
-                    )
-                    Spacer(Modifier.height(20.dp))
-                }
+
 
                 // Current state + action buttons
                 item {
@@ -145,54 +117,11 @@ fun HomeScreen(
                     )
                 }
             }
-
-            // Bottom navigation
-            BottomNavBar(selectedTab = selectedTab.intValue, onTabSelected = {
-                selectedTab.intValue = it
-                when (it) {
-                    0 -> onNavigate(AppRoute.Home)
-                    1 -> onNavigate(AppRoute.Habits)
-                    2 -> onNavigate(AppRoute.Sounds)
-                    3 -> onNavigate(AppRoute.Insights)
-                    4 -> onNavigate(AppRoute.Profile)
-                }
-            })
         }
     }
 }
 
-@Composable
-private fun ServiceBanner(elapsedMinutes: Int) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = PrimaryContainer),
-        shape = CardShape
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(Primary, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Spa, null, tint = OnPrimary, modifier = Modifier.size(18.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Recharge Service Active", style = MaterialTheme.typography.labelLarge, color = PrimaryDark)
-                Text("Mindful Restore · ${elapsedMinutes}m elapsed", style = MaterialTheme.typography.bodySmall, color = TextMedium)
-            }
-            Icon(Icons.Default.Pause, null, tint = TextMedium)
-            Spacer(Modifier.width(8.dp))
-            Icon(Icons.Default.Close, null, tint = TextMedium)
-        }
-    }
-}
+
 
 @Composable
 private fun SessionTypeTabs(modifier: Modifier = Modifier) {
@@ -223,45 +152,7 @@ private fun SessionTypeTabs(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun ForegroundActiveCard(currentApp: String?, onSettings: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        shape = CardShape,
-        border = CardDefaults.outlinedCardBorder().copy(width = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier.size(44.dp).background(PrimaryContainer, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .background(Primary, CircleShape)
-                        .align(Alignment.TopEnd)
-                )
-                Icon(Icons.Default.RadioButtonChecked, null, tint = Primary, modifier = Modifier.size(24.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("FOREGROUND ACTIVE · UsageStatsManager", style = MaterialTheme.typography.labelSmall, color = Primary)
-                Text(
-                    "Recharge Queue active • Current: ${currentApp ?: "…"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextHighEmphasis
-                )
-            }
-            IconButton(onClick = onSettings, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Settings, null, tint = TextMedium, modifier = Modifier.size(18.dp))
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun CurrentStateCard(
@@ -273,103 +164,70 @@ private fun CurrentStateCard(
     onRedirect: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Surface),
+    if (showRecharge) {
+        BigMinimalButton(
+            text = if (isQueueEmpty) "Empty" else "RECHARGE",
+            subtext = if (isQueueEmpty) "Add apps to queue" else "Start mindful protocol",
+            onClick = onRecharge,
+            enabled = !isQueueEmpty,
+            modifier = modifier
+        )
+    } else if (showRedirect) {
+        BigMinimalButton(
+            text = if (isQueueEmpty) "Empty" else "REDIRECT",
+            subtext = if (isQueueEmpty) "Add apps to queue" else "Launch $nextAppName",
+            onClick = onRedirect,
+            enabled = !isQueueEmpty,
+            modifier = modifier
+        )
+    } else {
+        BigMinimalButton(
+            text = "STANDBY",
+            subtext = "Queue is empty",
+            onClick = {},
+            enabled = false,
+            modifier = modifier
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BigMinimalButton(
+    text: String,
+    subtext: String,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(220.dp),
         shape = CardShape,
-        border = CardDefaults.outlinedCardBorder().copy(width = 1.dp)
+        color = if (enabled) Primary else SurfaceVariant,
+        contentColor = if (enabled) OnPrimary else TextMedium
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text("CURRENT STATE", style = MaterialTheme.typography.labelSmall, color = TextMedium)
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    if (isQueueEmpty) "Queue Empty\nAdd Apps" else "Intentional Mindset\nReady",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = TextHighEmphasis,
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedButton(
-                    onClick = {},
-                    shape = PillShape,
-                    border = ButtonDefaults.outlinedButtonBorder(enabled = true)
-                ) {
-                    Icon(Icons.Default.Tune, null, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Simulate\nCooldown", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            // Start Recharge button
-            AnimatedVisibility(showRecharge) {
-                var pressed by remember { mutableStateOf(false) }
-                Button(
-                    onClick = {
-                        pressed = true
-                        onRecharge()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(68.dp)
-                        .scale(if (pressed) 0.97f else 1f),
-                    shape = PillShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                    enabled = !isQueueEmpty
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(Color.White.copy(alpha = 0.15f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.SelfImprovement, null, tint = OnPrimary, modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(if (isQueueEmpty) "Add Apps First" else "Start Recharge", style = MaterialTheme.typography.titleLarge, color = if (isQueueEmpty) TextMedium else OnPrimary)
-                        Text(if (isQueueEmpty) "Queue is empty" else "Video restore & mindful quotes", style = MaterialTheme.typography.bodySmall, color = if (isQueueEmpty) TextMedium else OnPrimary.copy(alpha = 0.7f))
-                    }
-                    Icon(Icons.Default.ArrowForward, null, tint = OnPrimary)
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Launch Redirect button
-            AnimatedVisibility(showRedirect) {
-                OutlinedButton(
-                    onClick = onRedirect,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = PillShape,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = PrimaryContainer,
-                        contentColor = PrimaryDark
-                    ),
-                    border = null,
-                    enabled = !isQueueEmpty
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(Primary.copy(alpha = 0.15f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.OpenInNew, null, tint = Primary, modifier = Modifier.size(16.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(if (isQueueEmpty) "No Apps in Queue" else "Launch Redirect", style = MaterialTheme.typography.titleMedium, color = if (isQueueEmpty) TextMedium else PrimaryDark)
-                        Text(if (isQueueEmpty) "Add apps in Manage Queue" else "Open current queue app ($nextAppName)", style = MaterialTheme.typography.bodySmall, color = TextMedium)
-                    }
-                    Icon(Icons.Default.OpenInNew, null, tint = TextMedium, modifier = Modifier.size(16.dp))
-                }
-            }
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.Light,
+                letterSpacing = 4.sp
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = subtext,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (enabled) OnPrimary.copy(alpha = 0.7f) else TextMedium.copy(alpha = 0.7f),
+                fontWeight = FontWeight.Normal
+            )
         }
     }
 }
@@ -431,37 +289,6 @@ private fun QueueItemRow(item: QueueItemEntity, currentIndex: Int, modifier: Mod
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun BottomNavBar(selectedTab: Int, onTabSelected: (Int) -> Unit) {
-    val tabs = listOf(
-        "Restore" to Icons.Default.SelfImprovement,
-        "Habits" to Icons.Default.CalendarToday,
-        "Sounds" to Icons.Default.Waves,
-        "Insights" to Icons.Default.BarChart,
-        "Profile" to Icons.Default.Person
-    )
-    NavigationBar(
-        containerColor = Surface,
-        tonalElevation = 0.dp
-    ) {
-        tabs.forEachIndexed { i, (label, icon) ->
-            NavigationBarItem(
-                selected = selectedTab == i,
-                onClick = { onTabSelected(i) },
-                icon = { Icon(icon, label, modifier = Modifier.size(22.dp)) },
-                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Primary,
-                    selectedTextColor = Primary,
-                    indicatorColor = PrimaryContainer,
-                    unselectedIconColor = TextMedium,
-                    unselectedTextColor = TextMedium
-                )
-            )
         }
     }
 }

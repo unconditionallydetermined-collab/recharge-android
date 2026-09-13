@@ -12,8 +12,7 @@ import com.example.recharge.data.room.QueueItemDao
 import com.example.recharge.data.room.QueueItemEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.auth.auth
+
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -21,13 +20,21 @@ import javax.inject.Inject
 
 data class InstalledApp(val name: String, val packageName: String)
 
+data class SettingsCombineData(
+    val items: List<QueueItemEntity>,
+    val index: Int,
+    val locked: Boolean,
+    val lockExpiresAt: Long,
+    val url: String
+)
+
 data class SettingsUiState(
     val queueItems: List<QueueItemEntity> = emptyList(),
     val queueIndex: Int = 0,
     val isQuoteEditLocked: Boolean = false,
     val quoteLockExpiresAt: Long = 0L,
     val firstQuoteText: String = "You have power over your mind - not outside events. Realize this, and you will find strength.",
-    val userEmail: String = "",
+
     val hasUsageStatsPermission: Boolean = false,
     val hasForegroundService: Boolean = true,
     val hasBatteryExemption: Boolean = false,
@@ -35,7 +42,12 @@ data class SettingsUiState(
     val installedApps: List<InstalledApp> = emptyList(),
     // Quote editor fields
     val editableQuotes: List<String> = listOf("", "", "", "", ""),
-    val isEditingQuotes: Boolean = false
+    val isEditingQuotes: Boolean = false,
+    // Update state
+    val updateMessage: String? = null,
+    
+    // YouTube
+    val youtubeUrl: String = ""
 )
 
 @HiltViewModel
@@ -43,7 +55,7 @@ class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val prefs: RechargePreferences,
     private val queueDao: QueueItemDao,
-    private val supabase: SupabaseClient
+    private val updateManager: com.example.recharge.updater.UpdateManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -54,19 +66,21 @@ class SettingsViewModel @Inject constructor(
             combine(
                 queueDao.getAll(),
                 prefs.queueIndex,
-                prefs.quotesEditedAt
-            ) { items, index, editedAt ->
+                prefs.quotesEditedAt,
+                prefs.youtubeUrl
+            ) { items, index, editedAt, url ->
                 val now = System.currentTimeMillis()
                 val locked = editedAt > 0 && (now - editedAt) < TimingConfig.QUOTE_EDIT_LOCK_MS
-                Triple(items, index, Pair(locked, if (locked) editedAt + TimingConfig.QUOTE_EDIT_LOCK_MS else 0L))
-            }.collect { (items, index, lockInfo) ->
+                // Return a data structure since we have more than 3 elements
+                SettingsCombineData(items, index, locked, if (locked) editedAt + TimingConfig.QUOTE_EDIT_LOCK_MS else 0L, url)
+            }.collect { data ->
                 _state.update {
                     it.copy(
-                        queueItems = items,
-                        queueIndex = index,
-                        isQuoteEditLocked = lockInfo.first,
-                        quoteLockExpiresAt = lockInfo.second,
-                        userEmail = supabase.auth.currentUserOrNull()?.email ?: "user@recharge.app",
+                        queueItems = data.items,
+                        queueIndex = data.index,
+                        isQuoteEditLocked = data.locked,
+                        quoteLockExpiresAt = data.lockExpiresAt,
+                        youtubeUrl = data.url,
                         hasUsageStatsPermission = checkUsageStatsPermission(),
                         hasBatteryExemption = checkBatteryExemption()
                     )
@@ -152,13 +166,13 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    fun signOut() {
+    fun updateYoutubeUrlInput(url: String) {
+        _state.update { it.copy(youtubeUrl = url) }
+    }
+
+    fun saveYoutubeUrl() {
         viewModelScope.launch {
-            try {
-                supabase.auth.signOut()
-            } catch (e: Exception) {
-                Timber.e(e, "Sign out failed")
-            }
+            prefs.setYoutubeUrl(_state.value.youtubeUrl)
         }
     }
 
@@ -183,5 +197,22 @@ class SettingsViewModel @Inject constructor(
         } catch (e: Exception) {
             false
         }
+    }
+
+    fun checkForUpdates() {
+        viewModelScope.launch {
+            _state.update { it.copy(updateMessage = "Checking for updates...") }
+            val result = updateManager.checkForUpdates()
+            val message = when (result) {
+                is com.example.recharge.updater.UpdateManager.UpdateResult.Downloading -> "Update found! Downloading in background..."
+                is com.example.recharge.updater.UpdateManager.UpdateResult.NoUpdate -> "You are on the latest version."
+                is com.example.recharge.updater.UpdateManager.UpdateResult.Error -> result.message
+            }
+            _state.update { it.copy(updateMessage = message) }
+        }
+    }
+
+    fun clearUpdateMessage() {
+        _state.update { it.copy(updateMessage = null) }
     }
 }

@@ -14,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,6 +40,13 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    LaunchedEffect(state.updateMessage) {
+        state.updateMessage?.let {
+            android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show()
+            viewModel.clearUpdateMessage()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -173,19 +182,35 @@ fun SettingsScreen(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
-
-            // Sync profile / Account
+            
+            // Updates section
             item {
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    "Sync Profile",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextHighEmphasis,
+                SectionHeader(
+                    icon = Icons.Default.SystemUpdateAlt,
+                    title = "Remote Updates",
+                    subtitle = "Sideloading",
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                 )
-                AccountRow(
-                    email = state.userEmail,
-                    onSignOut = viewModel::signOut,
+                UpdatePanel(
+                    onCheckUpdate = { viewModel.checkForUpdates() },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+            
+            // Video section
+            item {
+                Spacer(Modifier.height(16.dp))
+                SectionHeader(
+                    icon = Icons.Default.VideoLibrary,
+                    title = "Recharge Video",
+                    subtitle = "Custom YouTube Link",
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+                YoutubeSettingsPanel(
+                    youtubeUrl = state.youtubeUrl,
+                    onUrlChange = { viewModel.updateYoutubeUrlInput(it) },
+                    onSave = { viewModel.saveYoutubeUrl() },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
@@ -491,37 +516,7 @@ private fun PermissionRow(
     }
 }
 
-@Composable
-private fun AccountRow(email: String, onSignOut: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Surface),
-        shape = CardShape,
-        border = CardDefaults.outlinedCardBorder().copy(width = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(Primary, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(email.firstOrNull()?.uppercase() ?: "M", style = MaterialTheme.typography.titleLarge, color = OnPrimary)
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(email, style = MaterialTheme.typography.titleMedium, color = TextHighEmphasis)
-                Text("Subscriber • End-to-End Encrypted", style = MaterialTheme.typography.bodySmall, color = TextMedium)
-            }
-            IconButton(onClick = onSignOut) {
-                Icon(Icons.Default.Logout, null, tint = TextMedium)
-            }
-        }
-    }
-}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -530,20 +525,41 @@ private fun AppScannerSheet(
     onDismiss: () -> Unit,
     onSelect: (InstalledApp) -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredApps = remember(searchQuery, installedApps) {
+        if (searchQuery.isBlank()) installedApps
+        else installedApps.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Installed Apps", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(16.dp))
-            installedApps.take(20).forEach { app ->
-                ListItem(
-                    headlineContent = { Text(app.name) },
-                    supportingContent = { Text(app.packageName, style = MaterialTheme.typography.bodySmall) },
-                    trailingContent = {
-                        IconButton(onClick = { onSelect(app); onDismiss() }) {
-                            Icon(Icons.Default.Add, null, tint = Primary)
-                        }
-                    }
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search apps...") },
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Primary,
+                    unfocusedBorderColor = Border
                 )
+            )
+            Spacer(Modifier.height(16.dp))
+            LazyColumn {
+                items(filteredApps, key = { it.packageName }) { app ->
+                    ListItem(
+                        headlineContent = { Text(app.name) },
+                        supportingContent = { Text(app.packageName, style = MaterialTheme.typography.bodySmall) },
+                        trailingContent = {
+                            IconButton(onClick = { onSelect(app); onDismiss() }) {
+                                Icon(Icons.Default.Add, null, tint = Primary)
+                            }
+                        }
+                    )
+                }
             }
         }
     }
@@ -598,6 +614,86 @@ private fun QuoteEditorSection(
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
             ) {
                 Text("Save & Lock for 3 Days", color = OnPrimary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdatePanel(
+    onCheckUpdate: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Surface),
+        shape = CardShape,
+        border = CardDefaults.outlinedCardBorder().copy(width = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(PrimaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.SystemUpdate, null, tint = Primary, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("App Updates", style = MaterialTheme.typography.titleMedium, color = TextHighEmphasis)
+                    Text("Check for new versions", style = MaterialTheme.typography.bodySmall, color = TextMedium)
+                }
+                Button(
+                    onClick = onCheckUpdate,
+                    shape = PillShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Text("Check", style = MaterialTheme.typography.labelSmall, color = OnPrimary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun YoutubeSettingsPanel(
+    youtubeUrl: String,
+    onUrlChange: (String) -> Unit,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Surface),
+        shape = CardShape,
+        border = CardDefaults.outlinedCardBorder().copy(width = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            OutlinedTextField(
+                value = youtubeUrl,
+                onValueChange = onUrlChange,
+                label = { Text("YouTube URL", color = TextMedium) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = PillShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Primary,
+                    unfocusedBorderColor = Border
+                ),
+                singleLine = true
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = onSave,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = PillShape,
+                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+            ) {
+                Icon(Icons.Default.Save, null, tint = OnPrimary, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Save Video", color = OnPrimary)
             }
         }
     }

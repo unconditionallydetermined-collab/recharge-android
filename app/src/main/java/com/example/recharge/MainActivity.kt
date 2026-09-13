@@ -12,25 +12,18 @@ import androidx.compose.ui.Modifier
 import com.example.recharge.theme.Background
 import com.example.recharge.theme.RechargeTheme
 import com.example.recharge.tracking.UsageTrackingWorker
-import com.example.recharge.sync.SupabaseSyncWorker
+
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    /** Set to true when a recharge://reset-password deep link is received */
-    private val deepLinkResetPassword = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Start background workers
         UsageTrackingWorker.enqueuePeriodicWork(this)
-        SupabaseSyncWorker.enqueuePeriodicSync(this)
-
-        // Check incoming deep link
-        handleDeepLink(intent)
 
         setContent {
             RechargeTheme {
@@ -38,21 +31,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = Background
                 ) {
-                    RechargeNavGraph(deepLinkResetPassword = deepLinkResetPassword.value)
+                    RechargeNavGraph()
                 }
             }
         }
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        handleDeepLink(intent)
-    }
 
-    private fun handleDeepLink(intent: Intent?) {
-        val data = intent?.data ?: return
-        if (data.scheme == "recharge" && data.host == "reset-password") {
-            deepLinkResetPassword.value = true
-        }
-    }
 }

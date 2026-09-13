@@ -36,11 +36,18 @@ class VideoViewModel @Inject constructor(
 
     private val sessionStarted = System.currentTimeMillis()
 
+    private val predefinedVideos = listOf(
+        "https://www.youtube.com/watch?v=inpok4MKVLM", // Example breathing/meditation
+        "https://www.youtube.com/watch?v=ZToicYcHIOU", // Example relaxation
+        "https://www.youtube.com/watch?v=txQ6t4yPIM0"  // Example yoga nidra
+    )
+
     init {
         viewModelScope.launch {
             combine(prefs.youtubeUrl, prefs.queueIndex) { url, index ->
                 val items = queueDao.getAllOnce()
-                Pair(url, items.getOrNull(index)?.appName ?: "app")
+                val finalUrl = if (url.isBlank()) predefinedVideos.random() else url
+                Pair(finalUrl, items.getOrNull(index)?.appName ?: "app")
             }.collect { (url, nextApp) ->
                 _state.update { it.copy(youtubeUrl = url, nextAppName = nextApp) }
             }

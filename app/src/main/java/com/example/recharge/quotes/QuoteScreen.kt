@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -130,7 +131,7 @@ fun QuoteScreen(
                     ) {
                         Text("Presence over impulse", style = MaterialTheme.typography.bodySmall, color = TextMedium)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Spa, null, tint = Primary, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Favorite, null, tint = Primary, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
                             Text("Mindful Protocol", style = MaterialTheme.typography.labelSmall, color = Primary)
                         }
