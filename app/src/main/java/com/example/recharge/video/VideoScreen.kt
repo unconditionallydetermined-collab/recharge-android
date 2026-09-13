@@ -6,6 +6,9 @@ import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,6 +29,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.recharge.theme.*
+import kotlinx.coroutines.delay
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -37,6 +41,20 @@ fun VideoScreen(
     val context = LocalContext.current
 
     var showUrlPrompt by remember { mutableStateOf(false) }
+    var redirecting by remember { mutableStateOf(false) }
+    val progress = remember { Animatable(0f) }
+
+    // When redirecting starts, animate progress bar then complete
+    LaunchedEffect(redirecting) {
+        if (redirecting) {
+            progress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 2000, easing = LinearEasing)
+            )
+            viewModel.completeSession()
+            onVideoComplete()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -80,76 +98,82 @@ fun VideoScreen(
                 }
             }
         } else {
-            // Video player
-            var videoEnded by remember { mutableStateOf(false) }
-            
-            if (videoEnded) {
-                // Black screen with white bold text — tap anywhere to redirect
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            viewModel.completeSession()
-                            onVideoComplete()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Launch ${state.nextAppName}",
-                        color = Color.White,
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
+            // Fullscreen clean video player
+            Box(modifier = Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            setBackgroundColor(android.graphics.Color.BLACK)
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            settings.mediaPlaybackRequiresUserGesture = false
+                            settings.loadWithOverviewMode = true
+                            settings.useWideViewPort = true
+                            // Spoof Chrome Mobile user agent
+                            settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                            
+                            webViewClient = object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                    return false
+                                }
+                            }
+                            webChromeClient = android.webkit.WebChromeClient()
+                            
+                            // Embed URL with minimal UI: controls for pause/scrub, no related, no annotations, no fullscreen
+                            val embedUrl = "https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1&fs=0&iv_load_policy=3&disablekb=0"
+                            loadUrl(embedUrl)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                // Invisible tap zone at top of screen to trigger redirect
+                // (bottom area left free for YouTube scrub bar)
+                if (!redirecting) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.75f)
+                            .align(Alignment.TopCenter)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                redirecting = true
+                            }
                     )
                 }
-            } else {
-                // Fullscreen Video Player with spoofed user agent
-                Box(modifier = Modifier.fillMaxSize()) {
-                    AndroidView(
-                        factory = { ctx ->
-                            WebView(ctx).apply {
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
-                                )
-                                setBackgroundColor(android.graphics.Color.BLACK)
-                                settings.javaScriptEnabled = true
-                                settings.domStorageEnabled = true
-                                settings.mediaPlaybackRequiresUserGesture = false
-                                settings.loadWithOverviewMode = true
-                                settings.useWideViewPort = true
-                                // Spoof Chrome Mobile user agent so YouTube doesn't block playback
-                                settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-                                
-                                webViewClient = object : WebViewClient() {
-                                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                        // Keep all navigation inside the WebView
-                                        return false
-                                    }
-                                }
-                                webChromeClient = android.webkit.WebChromeClient()
-                                
-                                // Load the full YouTube mobile page — most reliable approach
-                                loadUrl("https://m.youtube.com/watch?v=$videoId")
-                            }
-                        },
-                        modifier = Modifier.fillMaxSize()
-                    )
 
-                    // Small "Done" text at top right — tapping ends session
-                    Text(
-                        text = "Done",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
+                // Progress bar at bottom when redirecting
+                if (redirecting) {
+                    // Dim overlay
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(20.dp)
-                            .clickable { videoEnded = true }
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.7f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Redirecting…",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    // Thin white progress bar at the very bottom
+                    LinearProgressIndicator(
+                        progress = { progress.value },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .align(Alignment.BottomCenter),
+                        color = Color.White,
+                        trackColor = Color.White.copy(alpha = 0.2f)
                     )
                 }
             }
