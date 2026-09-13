@@ -117,11 +117,19 @@ fun VideoScreen(
                                     )
                                     setBackgroundColor(android.graphics.Color.BLACK)
                                     settings.javaScriptEnabled = true
+                                    settings.domStorageEnabled = true
                                     settings.mediaPlaybackRequiresUserGesture = false
                                     webViewClient = WebViewClient()
+                                    webChromeClient = android.webkit.WebChromeClient()
                                     // Add a JS interface or intercept clicks if needed, 
                                     // for now we rely on the overlay click
-                                    loadData(buildYouTubeHtml(videoId), "text/html", "utf-8")
+                                    loadDataWithBaseURL(
+                                        "https://www.youtube.com",
+                                        buildYouTubeHtml(videoId),
+                                        "text/html",
+                                        "utf-8",
+                                        null
+                                    )
                                     webViewRef = this
                                 }
                             },
