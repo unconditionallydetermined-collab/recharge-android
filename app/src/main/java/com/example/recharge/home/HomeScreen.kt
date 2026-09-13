@@ -1,7 +1,6 @@
 package com.example.recharge.home
 
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -14,14 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,7 +60,7 @@ fun HomeScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-            // Top bar (Recharge text removed, only Settings remains)
+            // Top bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -84,7 +78,7 @@ fun HomeScreen(
                 }
             }
 
-            // Center decoration (Tablet with stylus, white outlines on black)
+            // Center decoration (Solid white tablet with uniform bezels)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -141,7 +135,7 @@ fun HomeScreen(
                 val buttonEnabled: Boolean
                 val buttonAction: () -> Unit
 
-                // The user requested to prioritize RECHARGE unless queue is empty.
+                // Prioritize RECHARGE unless queue is empty.
                 if (state.isQueueEmpty) {
                     buttonText = "EMPTY"
                     buttonSubtext = "Add apps in settings"
@@ -222,65 +216,18 @@ fun HomeScreen(
 
 @Composable
 fun TabletDecoration() {
-    Canvas(modifier = Modifier.size(240.dp)) {
-        val strokeWidth = 4.dp.toPx()
-        val thinStroke = 2.dp.toPx()
-        val white = Color.White
-        
-        // Tablet body
-        val tabletWidth = size.width * 0.6f
-        val tabletHeight = size.height * 0.8f
-        val topLeftX = (size.width - tabletWidth) / 2
-        val topLeftY = (size.height - tabletHeight) / 2
-        
-        drawRoundRect(
-            color = white,
-            topLeft = Offset(topLeftX, topLeftY),
-            size = Size(tabletWidth, tabletHeight),
-            cornerRadius = CornerRadius(16.dp.toPx()),
-            style = Stroke(width = strokeWidth)
+    // Solid white tablet with uniform black screen inside (creating white bezels)
+    // Matches the style of the solid white redirect button below it.
+    Box(
+        modifier = Modifier
+            .size(width = 160.dp, height = 220.dp)
+            .background(Color.White, RoundedCornerShape(20.dp))
+            .padding(8.dp) // Uniform bezel thickness
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black, RoundedCornerShape(14.dp))
         )
-        
-        // Screen inner rectangle
-        drawRoundRect(
-            color = white,
-            topLeft = Offset(topLeftX + 8.dp.toPx(), topLeftY + 20.dp.toPx()),
-            size = Size(tabletWidth - 16.dp.toPx(), tabletHeight - 40.dp.toPx()),
-            style = Stroke(width = thinStroke)
-        )
-        
-        // Stylus pen diagonal
-        val penEndX = topLeftX + tabletWidth / 2 + 10.dp.toPx()
-        val penEndY = topLeftY + tabletHeight * 0.65f
-        val penStartX = topLeftX + tabletWidth + 30.dp.toPx()
-        val penStartY = topLeftY + 10.dp.toPx()
-        
-        drawLine(
-            color = white,
-            start = Offset(penStartX, penStartY),
-            end = Offset(penEndX, penEndY),
-            strokeWidth = strokeWidth * 1.5f,
-            cap = StrokeCap.Round
-        )
-        
-        // Stylus tip (triangle pointing at the end of the pen)
-        val path = Path().apply {
-            moveTo(penEndX, penEndY)
-            lineTo(penEndX - 8.dp.toPx(), penEndY + 16.dp.toPx())
-            lineTo(penEndX + 10.dp.toPx(), penEndY + 6.dp.toPx())
-            close()
-        }
-        drawPath(path, color = white)
-        
-        // Writing lines
-        val lineStartX = topLeftX + 24.dp.toPx()
-        val line1Y = topLeftY + 48.dp.toPx()
-        drawLine(white, Offset(lineStartX, line1Y), Offset(lineStartX + 48.dp.toPx(), line1Y), strokeWidth = thinStroke, cap = StrokeCap.Round)
-        
-        val line2Y = line1Y + 24.dp.toPx()
-        drawLine(white, Offset(lineStartX, line2Y), Offset(lineStartX + 70.dp.toPx(), line2Y), strokeWidth = thinStroke, cap = StrokeCap.Round)
-        
-        val line3Y = line2Y + 24.dp.toPx()
-        drawLine(white, Offset(lineStartX, line3Y), Offset(lineStartX + 36.dp.toPx(), line3Y), strokeWidth = thinStroke, cap = StrokeCap.Round)
     }
 }
