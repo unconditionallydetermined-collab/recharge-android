@@ -61,45 +61,7 @@ fun VideoScreen(
         } else {
             // Video player (YouTube IFrame in WebView)
             Column(modifier = Modifier.fillMaxSize()) {
-                // Top bar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .statusBarsPadding(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.KeyboardArrowDown, null, tint = Color.White, modifier = Modifier.size(28.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.GraphicEq, null, tint = Primary, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Binaural 432Hz", style = MaterialTheme.typography.titleMedium, color = Color.White)
-                    }
-                    Icon(Icons.Default.MoreVert, null, tint = Color.White.copy(0.6f))
-                }
 
-                // Service indicator
-                Surface(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = Color.White.copy(0.1f),
-                    shape = PillShape
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(Modifier.size(6.dp).background(Primary, CircleShape))
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "MediaSessionService Active • Screen-off Playback",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(0.8f)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
 
                 // YouTube IFrame player (WebView)
                 val videoId = extractYouTubeId(state.youtubeUrl)
@@ -139,47 +101,7 @@ fun VideoScreen(
                     }
                 }
 
-                // Video info
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF0D0D0D))
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-                ) {
-                    Text("MINDFUL RESTORATION", style = MaterialTheme.typography.labelSmall, color = TextMedium)
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Deep Forest Respiration", style = MaterialTheme.typography.titleLarge, color = Color.White)
-                        Text("03:45 / 05:00", style = MaterialTheme.typography.bodySmall, color = TextMedium)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    // Progress bar
-                    LinearProgressIndicator(
-                        progress = { 0.75f },
-                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(PillShape),
-                        color = Primary,
-                        trackColor = Color.White.copy(0.2f)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Spa, null, tint = Primary, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("4-7-8 Breathing Cadence", style = MaterialTheme.typography.labelSmall, color = TextMedium)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Lock, null, tint = TextMedium, modifier = Modifier.size(12.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Auto-lock in 01:15", style = MaterialTheme.typography.labelSmall, color = TextMedium)
-                        }
-                    }
-                }
+
 
                 // Post-video handoff bottom sheet
                 PostVideoHandoff(

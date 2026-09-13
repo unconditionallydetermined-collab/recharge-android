@@ -4,7 +4,9 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
@@ -52,7 +54,12 @@ fun QuoteScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
-        Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                .verticalScroll(rememberScrollState())
+        ) {
             // Step indicator
             Row(
                 modifier = Modifier
@@ -145,7 +152,7 @@ fun QuoteScreen(
                 BreathingCircle(modifier = Modifier.align(Alignment.CenterHorizontally))
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(48.dp))
 
             // Continue button
             Button(
