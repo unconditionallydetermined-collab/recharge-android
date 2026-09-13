@@ -61,14 +61,6 @@ fun HomeScreen(
                     }
                 }
 
-                // Session type tabs
-                item {
-                    SessionTypeTabs(modifier = Modifier.padding(horizontal = 24.dp))
-                    Spacer(Modifier.height(16.dp))
-                }
-
-
-
                 // Current state + action buttons
                 item {
                     CurrentStateCard(
@@ -123,34 +115,7 @@ fun HomeScreen(
 
 
 
-@Composable
-private fun SessionTypeTabs(modifier: Modifier = Modifier) {
-    val tabs = listOf("Interactive App UI" to Icons.Default.PhoneAndroid, "Android Architecture & Room" to Icons.Default.Code)
-    var selected by remember { mutableIntStateOf(0) }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(SurfaceVariant, shape = PillShape)
-            .padding(4.dp)
-    ) {
-        tabs.forEachIndexed { i, (label, icon) ->
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(PillShape)
-                    .background(if (selected == i) Primary else Color.Transparent)
-                    .clickable { selected = i }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(icon, null, tint = if (selected == i) OnPrimary else TextMedium, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(label, style = MaterialTheme.typography.labelMedium, color = if (selected == i) OnPrimary else TextMedium)
-            }
-        }
-    }
-}
+
 
 
 

@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -55,17 +56,11 @@ class RechargePreferences @Inject constructor(
         .map { it[Keys.QUOTE_COUNT] ?: 3 }
 
     suspend fun getQuoteTexts(): List<String> {
-        val prefs = context.dataStore.data
-            .catch { if (it is IOException) emit(emptyPreferences()) else throw it }
-            .map { prefs ->
-                val count = prefs[Keys.QUOTE_COUNT] ?: 3
-                (0 until count).map { i ->
-                    prefs[Keys.quoteTextKey(i)] ?: defaultQuotes.getOrElse(i) { "" }
-                }
-            }
-        var result = listOf<String>()
-        prefs.collect { result = it; return@collect }
-        return result
+        val prefs = context.dataStore.data.first()
+        val count = prefs[Keys.QUOTE_COUNT] ?: 3
+        return (0 until count).map { i ->
+            prefs[Keys.quoteTextKey(i)] ?: defaultQuotes.getOrElse(i) { "" }
+        }
     }
 
     suspend fun setQueueIndex(index: Int) {
