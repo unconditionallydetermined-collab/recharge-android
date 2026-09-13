@@ -117,48 +117,21 @@ fun VideoScreen(
                                 settings.javaScriptEnabled = true
                                 settings.domStorageEnabled = true
                                 settings.mediaPlaybackRequiresUserGesture = false
+                                settings.loadWithOverviewMode = true
+                                settings.useWideViewPort = true
                                 webViewClient = WebViewClient()
                                 webChromeClient = android.webkit.WebChromeClient()
-                                addJavascriptInterface(object {
-                                    @android.webkit.JavascriptInterface
-                                    fun onVideoEnded() {
-                                        post { videoEnded = true }
-                                    }
-                                }, "AndroidVideoInterface")
                                 
-                                loadDataWithBaseURL(
-                                    "https://localhost",
-                                    buildYouTubeHtml(videoId),
-                                    "text/html",
-                                    "utf-8",
-                                    null
-                                )
+                                // Direct embed URL - this actually works in WebView
+                                val embedUrl = "https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1"
+                                loadUrl(embedUrl)
                                 webViewRef = this
                             }
                         },
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    // Invisible clickable overlay to capture taps for play/pause
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Transparent)
-                            .clickable(
-                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                if (state.isPlaying) {
-                                    viewModel.togglePlayPause()
-                                    webViewRef?.evaluateJavascript("player.pauseVideo();", null)
-                                } else {
-                                    viewModel.togglePlayPause()
-                                    webViewRef?.evaluateJavascript("player.playVideo();", null)
-                                }
-                            }
-                    )
-
-                    // Close button at top right
+                    // Close / Done button at top right
                     IconButton(
                         onClick = { videoEnded = true },
                         modifier = Modifier
@@ -222,43 +195,3 @@ private fun extractYouTubeId(url: String): String? {
     val regex = Regex("(?:youtu\\.be/|youtube\\.com/(?:watch\\?v=|embed/|v/))([a-zA-Z0-9_-]{11})")
     return regex.find(url)?.groupValues?.get(1)
 }
-
-private fun buildYouTubeHtml(videoId: String) = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            * { margin: 0; padding: 0; background: #000; }
-            #player { width: 100vw; height: 100vh; }
-        </style>
-    </head>
-    <body>
-        <div id="player"></div>
-        <script src="https://www.youtube.com/iframe_api"></script>
-        <script>
-            var player;
-            function onYouTubeIframeAPIReady() {
-                player = new YT.Player('player', {
-                    videoId: '$videoId',
-                    playerVars: {
-                        'playsinline': 1,
-                        'controls': 0,
-                        'rel': 0,
-                        'modestbranding': 1,
-                        'autoplay': 1,
-                        'origin': 'https://localhost'
-                    },
-                    events: { 
-                        'onReady': function(e) { e.target.playVideo(); },
-                        'onStateChange': function(e) {
-                            if (e.data === YT.PlayerState.ENDED && window.AndroidVideoInterface) {
-                                window.AndroidVideoInterface.onVideoEnded();
-                            }
-                        }
-                    }
-                });
-            }
-        </script>
-    </body>
-    </html>
-""".trimIndent()
