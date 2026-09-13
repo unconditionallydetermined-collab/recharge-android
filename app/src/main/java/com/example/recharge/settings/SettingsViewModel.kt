@@ -1,0 +1,187 @@
+package com.example.recharge.settings
+
+import android.app.AppOpsManager
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.PowerManager
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.recharge.data.datastore.RechargePreferences
+import com.example.recharge.data.datastore.TimingConfig
+import com.example.recharge.data.room.QueueItemDao
+import com.example.recharge.data.room.QueueItemEntity
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import timber.log.Timber
+import javax.inject.Inject
+
+data class InstalledApp(val name: String, val packageName: String)
+
+data class SettingsUiState(
+    val queueItems: List<QueueItemEntity> = emptyList(),
+    val queueIndex: Int = 0,
+    val isQuoteEditLocked: Boolean = false,
+    val quoteLockExpiresAt: Long = 0L,
+    val firstQuoteText: String = "You have power over your mind - not outside events. Realize this, and you will find strength.",
+    val userEmail: String = "",
+    val hasUsageStatsPermission: Boolean = false,
+    val hasForegroundService: Boolean = true,
+    val hasBatteryExemption: Boolean = false,
+    val showAppScanner: Boolean = false,
+    val installedApps: List<InstalledApp> = emptyList(),
+    // Quote editor fields
+    val editableQuotes: List<String> = listOf("", "", "", "", ""),
+    val isEditingQuotes: Boolean = false
+)
+
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val prefs: RechargePreferences,
+    private val queueDao: QueueItemDao,
+    private val supabase: SupabaseClient
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(SettingsUiState())
+    val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            combine(
+                queueDao.getAll(),
+                prefs.queueIndex,
+                prefs.quotesEditedAt
+            ) { items, index, editedAt ->
+                val now = System.currentTimeMillis()
+                val locked = editedAt > 0 && (now - editedAt) < TimingConfig.QUOTE_EDIT_LOCK_MS
+                Triple(items, index, Pair(locked, if (locked) editedAt + TimingConfig.QUOTE_EDIT_LOCK_MS else 0L))
+            }.collect { (items, index, lockInfo) ->
+                _state.update {
+                    it.copy(
+                        queueItems = items,
+                        queueIndex = index,
+                        isQuoteEditLocked = lockInfo.first,
+                        quoteLockExpiresAt = lockInfo.second,
+                        userEmail = supabase.auth.currentUserOrNull()?.email ?: "user@recharge.app",
+                        hasUsageStatsPermission = checkUsageStatsPermission(),
+                        hasBatteryExemption = checkBatteryExemption()
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteQueueItem(item: QueueItemEntity) {
+        viewModelScope.launch {
+            queueDao.delete(item)
+        }
+    }
+
+    fun showAppScanner() {
+        viewModelScope.launch {
+            val pm = context.packageManager
+            val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+                .filter { pm.getLaunchIntentForPackage(it.packageName) != null }
+                .map { InstalledApp(pm.getApplicationLabel(it).toString(), it.packageName) }
+                .sortedBy { it.name }
+            _state.update { it.copy(showAppScanner = true, installedApps = apps) }
+        }
+    }
+
+    fun hideAppScanner() {
+        _state.update { it.copy(showAppScanner = false) }
+    }
+
+    fun addToQueue(app: InstalledApp) {
+        viewModelScope.launch {
+            val current = queueDao.getAllOnce()
+            val nextPosition = current.size
+            queueDao.insert(
+                QueueItemEntity(
+                    position = nextPosition,
+                    packageName = app.packageName,
+                    appName = app.name
+                )
+            )
+        }
+    }
+
+    fun reorderQueue(fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch {
+            val items = queueDao.getAllOnce().toMutableList()
+            if (fromIndex < 0 || fromIndex >= items.size || toIndex < 0 || toIndex >= items.size) return@launch
+            val moved = items.removeAt(fromIndex)
+            items.add(toIndex, moved)
+            // Update positions
+            items.forEachIndexed { index, item ->
+                queueDao.update(item.copy(position = index, synced = false))
+            }
+        }
+    }
+
+    fun startEditingQuotes() {
+        _state.update { it.copy(isEditingQuotes = true) }
+    }
+
+    fun updateEditableQuote(index: Int, text: String) {
+        _state.update {
+            val mutable = it.editableQuotes.toMutableList()
+            if (index in mutable.indices) mutable[index] = text
+            it.copy(editableQuotes = mutable)
+        }
+    }
+
+    fun saveQuotes() {
+        viewModelScope.launch {
+            val quotes = _state.value.editableQuotes.filter { it.isNotBlank() }
+            if (quotes.isEmpty()) return@launch
+            prefs.saveQuotes(quotes)
+            prefs.setQuotesEditedAt(System.currentTimeMillis())
+            _state.update {
+                it.copy(
+                    isEditingQuotes = false,
+                    firstQuoteText = quotes.first(),
+                    isQuoteEditLocked = true,
+                    quoteLockExpiresAt = System.currentTimeMillis() + TimingConfig.QUOTE_EDIT_LOCK_MS
+                )
+            }
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            try {
+                supabase.auth.signOut()
+            } catch (e: Exception) {
+                Timber.e(e, "Sign out failed")
+            }
+        }
+    }
+
+    private fun checkUsageStatsPermission(): Boolean {
+        return try {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            val mode = appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                context.packageName
+            )
+            mode == AppOpsManager.MODE_ALLOWED
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun checkBatteryExemption(): Boolean {
+        return try {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            pm.isIgnoringBatteryOptimizations(context.packageName)
+        } catch (e: Exception) {
+            false
+        }
+    }
+}

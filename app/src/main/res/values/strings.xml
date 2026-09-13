@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Recharge</string>
+    <string name="accessibility_service_label">Recharge Foreground Tracker</string>
+    <string name="accessibility_service_description">Tracks the foreground app to enable passive queue completion. This data stays on your device and is never sent to any server. Enable only if you want more reliable app-switch detection.</string>
+</resources>
