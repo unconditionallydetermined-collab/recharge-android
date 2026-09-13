@@ -1,27 +1,27 @@
 package com.example.recharge.video
 
 import android.annotation.SuppressLint
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.view.ViewGroup
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,32 +80,35 @@ fun VideoScreen(
                 }
             }
         } else {
-            // Video player (YouTube IFrame in WebView)
+            // Video player
             var videoEnded by remember { mutableStateOf(false) }
             
             if (videoEnded) {
-                // Simple black end screen
+                // Black screen with white bold text — tap anywhere to redirect
                 Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Button(
-                        onClick = {
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
                             viewModel.completeSession()
                             onVideoComplete()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                        shape = PillShape,
-                        modifier = Modifier.height(56.dp).padding(horizontal = 32.dp)
-                    ) {
-                        Text("Launch ${state.nextAppName}", color = OnPrimary, style = MaterialTheme.typography.labelLarge)
-                    }
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Launch ${state.nextAppName}",
+                        color = Color.White,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
                 }
             } else {
-                // Fullscreen Video Player
+                // Fullscreen Video Player with spoofed user agent
                 Box(modifier = Modifier.fillMaxSize()) {
-                    var webViewRef by remember { mutableStateOf<WebView?>(null) }
-                    
                     AndroidView(
                         factory = { ctx ->
                             WebView(ctx).apply {
@@ -119,27 +122,35 @@ fun VideoScreen(
                                 settings.mediaPlaybackRequiresUserGesture = false
                                 settings.loadWithOverviewMode = true
                                 settings.useWideViewPort = true
-                                webViewClient = WebViewClient()
+                                // Spoof Chrome Mobile user agent so YouTube doesn't block playback
+                                settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                                
+                                webViewClient = object : WebViewClient() {
+                                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                        // Keep all navigation inside the WebView
+                                        return false
+                                    }
+                                }
                                 webChromeClient = android.webkit.WebChromeClient()
                                 
-                                // Direct embed URL - this actually works in WebView
-                                val embedUrl = "https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1"
-                                loadUrl(embedUrl)
-                                webViewRef = this
+                                // Load the full YouTube mobile page — most reliable approach
+                                loadUrl("https://m.youtube.com/watch?v=$videoId")
                             }
                         },
                         modifier = Modifier.fillMaxSize()
                     )
 
-                    // Close / Done button at top right
-                    IconButton(
-                        onClick = { videoEnded = true },
+                    // Small "Done" text at top right — tapping ends session
+                    Text(
+                        text = "Done",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(16.dp)
-                    ) {
-                        Icon(Icons.Default.Close, null, tint = Color.White)
-                    }
+                            .padding(20.dp)
+                            .clickable { videoEnded = true }
+                    )
                 }
             }
         }
