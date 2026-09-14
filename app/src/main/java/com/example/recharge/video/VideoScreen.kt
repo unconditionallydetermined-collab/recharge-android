@@ -103,18 +103,30 @@ fun VideoScreen(
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
+                            val webView = this
                             layoutParams = ViewGroup.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                             setBackgroundColor(android.graphics.Color.BLACK)
-                            settings.javaScriptEnabled = true
-                            settings.domStorageEnabled = true
-                            settings.mediaPlaybackRequiresUserGesture = false
-                            settings.loadWithOverviewMode = true
-                            settings.useWideViewPort = true
-                            // Spoof Chrome Mobile user agent
-                            settings.userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+
+                            // Enable cookies including 3rd party cookies required by YouTube embed
+                            android.webkit.CookieManager.getInstance().apply {
+                                setAcceptCookie(true)
+                                setAcceptThirdPartyCookies(webView, true)
+                            }
+
+                            settings.apply {
+                                javaScriptEnabled = true
+                                domStorageEnabled = true
+                                databaseEnabled = true
+                                mediaPlaybackRequiresUserGesture = false
+                                loadWithOverviewMode = true
+                                useWideViewPort = true
+                                allowContentAccess = true
+                                allowFileAccess = true
+                                userAgentString = "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                            }
                             
                             webViewClient = object : WebViewClient() {
                                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -123,9 +135,49 @@ fun VideoScreen(
                             }
                             webChromeClient = android.webkit.WebChromeClient()
                             
-                            // Embed URL with minimal UI: controls for pause/scrub, no related, no annotations, no fullscreen
-                            val embedUrl = "https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1&fs=0&iv_load_policy=3&disablekb=0"
-                            loadUrl(embedUrl)
+                            // YouTube blocks embeds when loaded as top-level window.
+                            // Wrapping it in an HTML document with an <iframe> and loading with base URL resolves the configuration error.
+                            val html = """
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                                    <style>
+                                        * { margin: 0; padding: 0; box-sizing: border-box; }
+                                        html, body {
+                                            width: 100%;
+                                            height: 100%;
+                                            background-color: #000000;
+                                            overflow: hidden;
+                                        }
+                                        .container {
+                                            position: absolute;
+                                            top: 0;
+                                            left: 0;
+                                            width: 100%;
+                                            height: 100%;
+                                        }
+                                        iframe {
+                                            width: 100%;
+                                            height: 100%;
+                                            border: none;
+                                        }
+                                    </style>
+                                </head>
+                                <body>
+                                    <div class="container">
+                                        <iframe
+                                            id="ytplayer"
+                                            src="https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&controls=1&fs=0&iv_load_policy=3&disablekb=0&enablejsapi=1&origin=https://www.youtube-nocookie.com"
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                </body>
+                                </html>
+                            """.trimIndent()
+
+                            loadDataWithBaseURL("https://www.youtube-nocookie.com", html, "text/html", "UTF-8", null)
                         }
                     },
                     modifier = Modifier.fillMaxSize()
