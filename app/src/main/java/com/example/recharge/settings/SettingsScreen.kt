@@ -77,6 +77,30 @@ fun SettingsScreen(
             item {
                 MindfulModeBanner(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
+            
+            // Force Recharge button
+            item {
+                Spacer(Modifier.height(8.dp))
+                SectionHeader(
+                    icon = Icons.Default.BatteryChargingFull,
+                    title = "Manual Recharge",
+                    subtitle = "Override redirect and start protocol",
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+                Button(
+                    onClick = { onNavigateTo(AppRoute.Quotes) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .height(52.dp),
+                    shape = PillShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    Icon(Icons.Default.PlayArrow, null, tint = OnPrimary)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Start Recharge Now", color = OnPrimary, style = MaterialTheme.typography.labelLarge)
+                }
+            }
 
             // Queue section header
             item {
