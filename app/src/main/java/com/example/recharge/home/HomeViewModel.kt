@@ -55,21 +55,22 @@ class HomeViewModel @Inject constructor(
             ) { items, index, rechargeAt, redirectAt ->
                 val now = System.currentTimeMillis()
 
-                // Visibility rules
-                val rechargeHidden = rechargeAt > 0 && (now - rechargeAt) < TimingConfig.RECHARGE_HIDDEN_MS
-                val redirectActive = redirectAt > 0 && (now - redirectAt) < TimingConfig.REDIRECT_ACTIVE_MS
+                // Visibility rules:
+                // Redirection tap ONLY works after recharge is complete!
+                val hasCompletedRecharge = rechargeAt > 0 && (now - rechargeAt) < TimingConfig.REDIRECT_ACTIVE_MS
                 val redirectLocked = redirectAt > 0 &&
                     (now - redirectAt) >= TimingConfig.REDIRECT_ACTIVE_MS &&
                     (now - redirectAt) < (TimingConfig.REDIRECT_ACTIVE_MS + TimingConfig.REDIRECT_LOCK_MS)
 
+                val canRedirect = hasCompletedRecharge && !redirectLocked
                 val nextApp = items.getOrNull(index)?.appName ?: "app"
 
                 HomeUiState(
                     queueItems = items,
                     queueIndex = index,
                     isQueueEmpty = items.isEmpty(),
-                    showRecharge = !rechargeHidden,
-                    showRedirect = !redirectLocked,
+                    showRecharge = !hasCompletedRecharge,
+                    showRedirect = canRedirect,
                     nextAppName = nextApp,
                     serviceActive = true // shown when queue is active
                 )

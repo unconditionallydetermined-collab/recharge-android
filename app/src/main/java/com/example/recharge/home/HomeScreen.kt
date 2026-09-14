@@ -177,7 +177,7 @@ fun HomeScreen(
                     .padding(bottom = 44.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Small non-prominent text button above the prominent button
+                // Small non-prominent text button above the prominent button (only shown after recharge is complete)
                 if (buttonText == "REDIRECT") {
                     TextButton(
                         onClick = { onNavigate(AppRoute.Quotes) },
@@ -186,20 +186,6 @@ fun HomeScreen(
                     ) {
                         Text(
                             text = "RECHARGE",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 4.sp,
-                            color = Color.White.copy(alpha = 0.5f)
-                        )
-                    }
-                } else if (buttonText == "RECHARGE" && state.showRedirect && !state.isQueueEmpty) {
-                    TextButton(
-                        onClick = { viewModel.launchRedirect(); onNavigate(AppRoute.Home) },
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "REDIRECT",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = 4.sp,
